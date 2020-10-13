@@ -72,9 +72,12 @@ const int INIT_WINDOW_SIZE = { 1500 };
 
 // blade parameters:
 
-#define BLADE_RADIUS		 1.0
+#define BLADE_RADIUS	 5.0
 #define BLADE_WIDTH		 0.4
 
+#define BLADE2_RADIUS  1.5
+
+#define MS_IN_THE_ANIMATION_CYCLE   1000;
 
 // multiplication factors for input interaction:
 //  (these are known from previous experience)
@@ -199,6 +202,8 @@ int		WhichProjection;		// ORTHO or PERSP
 int		Xmouse, Ymouse;			// mouse values
 float	Xrot, Yrot;				// rotation angles in degrees
 int		WhichView;			//Outside = 0, inside = 1
+float Time;           //Seconds per blade cycle
+bool Frozen;           // debugging
 
 
 // function prototypes:
@@ -291,9 +296,11 @@ Animate( )
 {
    // put animation stuff in here -- change some global variables
    // for Display( ) to find:
+   int ms = glutGet( GLUT_ELAPSED_TIME );	// milliseconds
+   ms  %=  MS_IN_THE_ANIMATION_CYCLE;
+   Time = (float)ms  /  (float)MS_IN_THE_ANIMATION_CYCLE;        // [ 0., 1. )
 
    // force a call to Display( ) next time it is convenient:
-
    glutSetWindow( MainWindow );
    glutPostRedisplay( );
 }
@@ -414,8 +421,10 @@ Display( )
 
    glEnable( GL_NORMALIZE );
 
-   glCallList ( SphereList );
-
+   glPushMatrix();
+        glTranslatef( 0., 0., -100.);
+        glCallList ( SphereList );
+   glPopMatrix();
 
    // draw the current object:
 
@@ -426,32 +435,54 @@ Display( )
    // draw the helicopter blade with radius BLADE_RADIUS and
    // width BLADE_WIDT H centered at (0.,0.,0.) in the XY plane
 
-   /*   gluLookAt(..);
-    *   glPushMatrix();
-    *
-    glBegin( GL_TRIANGLES );
-    glVertex2f(  BLADE_RADIUS,  BLADE_WIDTH/2. );
-    glVertex2f(  0., 0. );
-    glVertex2f(  BLADE_RADIUS, -BLADE_WIDTH/2. );
+   // Blade 1
+    glPushMatrix();
+       glColor3f( 1., 1. ,1. );
 
-    glVertex2f( -BLADE_RADIUS, -BLADE_WIDTH/2. );
-    glVertex2f(  0., 0. );
-    glVertex2f( -BLADE_RADIUS,  BLADE_WIDTH/2. );
+      //Transformations
+      glTranslatef( 0., 2.9, -2. );
+      //glScalef(2., 2., 2.);
+      glRotatef(360.*Time, 0., 1., 0.);
+      glRotatef(90., 1., 0., 0. );
+    //  glScalef(2., 2., 2.);
+
+
+      //Drawing
+      glBegin( GL_TRIANGLES );
+      glVertex2f(  BLADE_RADIUS,  BLADE_WIDTH/2. );
+      glVertex2f(  0., 0. );
+      glVertex2f(  BLADE_RADIUS, -BLADE_WIDTH/2. );
+
+      glVertex2f( -BLADE_RADIUS, -BLADE_WIDTH/2. );
+      glVertex2f(  0., 0. );
+      glVertex2f( -BLADE_RADIUS,  BLADE_WIDTH/2. );
     glEnd( );
-
-    glTranslatef(..);
-    glRotatef(360*Time);
-    glRotatef(90., ax, ay, az );
-    glScalef(...);
 
     glPopMatrix();
 
-    glTranslate();
-    glRotatef(3* 360*Time);
-    glRotatef(90., ax, ay, az );
-    glScalef(...);
+  // Blade 2
+    glPushMatrix();
+       glColor3f( 1., 1. ,1. );
 
-*/
+      //Transformations
+      glTranslatef( .5, 2.5, 9. );
+    //  glScalef(2., 2., 2.);
+      glRotatef(3*360.*Time, 0., 1., 0.);
+      glRotatef(90., 1., 0., 0. );
+
+      //Drawing
+      glBegin( GL_TRIANGLES );
+      glVertex2f(  BLADE2_RADIUS,  BLADE_WIDTH/2. );
+      glVertex2f(  0., 0. );
+      glVertex2f(  BLADE2_RADIUS, -BLADE_WIDTH/2. );
+
+      glVertex2f( -BLADE2_RADIUS, -BLADE_WIDTH/2. );
+      glVertex2f(  0., 0. );
+      glVertex2f( -BLADE2_RADIUS,  BLADE_WIDTH/2. );
+    glEnd( );
+
+    glPopMatrix();
+
 
    glDisable( GL_DEPTH_TEST );
    glMatrixMode( GL_PROJECTION );
@@ -756,7 +787,7 @@ InitGraphics( )
    glutTabletButtonFunc( NULL );
    glutMenuStateFunc( NULL );
    glutTimerFunc( -1, NULL, 0 );
-   glutIdleFunc( NULL );
+   glutIdleFunc( Animate );
 
    // init glew (a window must be open to do this):
 
@@ -902,7 +933,15 @@ Keyboard( unsigned char c, int x, int y )
 			DoMainMenu( QUIT );	// will not return here
 			break;				// happy compiler
 
-		default:
+    case 'f': case 'F':
+      Frozen = ! Frozen;
+      if( Frozen )
+		    glutIdleFunc( NULL );
+      else
+		    glutIdleFunc( Animate );
+	      break;
+
+    default:
 			fprintf( stderr, "Don't know what to do with keyboard hit: '%c' (0x%0x)\n", c, c );
 	}
 
@@ -1174,7 +1213,7 @@ Axes( float length )
 // function to convert HSV to RGB
 // 0.  <=  s, v, r, g, b  <=  1.
 // 0.  <= h  <=  360.
-// when this returns, call:
+// when this returns, call
 //		glColor3fv( rgb );
 
 void
